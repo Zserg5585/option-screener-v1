@@ -6,7 +6,11 @@ const app = express();
 const PORT = process.env.PORT || 8080;
 const API_KEY = process.env.API_KEY || 'default_key';
 
-let cache = { options: null, lastUpdate: null };
+let cache = { 
+  options: null, 
+  greeks: null,
+  lastUpdate: null 
+};
 
 function checkApiKey(req, res, next) {
   const key = req.headers['x-api-key'];
@@ -22,22 +26,41 @@ async function fetchOptions() {
     const resp = await axios.get(url);
     return resp.data;
   } catch (err) {
-    console.error('Binance error:', err.message);
+    console.error('Binance ticker error:', err.message);
+    return null;
+  }
+}
+
+async function fetchGreeks() {
+  try {
+    const url = 'https://eapi.binance.com/eapi/v1/mark';
+    const resp = await axios.get(url);
+    return resp.data;
+  } catch (err) {
+    console.error('Binance greeks error:', err.message);
     return null;
   }
 }
 
 async function updateCache() {
   console.log('Updating cache...');
-  const data = await fetchOptions();
-  if (data) {
-    cache.options = data;
-    cache.lastUpdate = new Date().toISOString();
-    console.log('Cache updated:', cache.lastUpdate);
+  const [options, greeks] = await Promise.all([
+    fetchOptions(),
+    fetchGreeks()
+  ]);
+  
+  if (options) cache.options = options;
+  if (greeks) {
+    // Создаём map для быстрого поиска
+    cache.greeks = {};
+    greeks.forEach(g => {
+      cache.greeks[g.symbol] = g;
+    });
   }
+  cache.lastUpdate = new Date().toISOString();
+  console.log('Cache updated:', cache.lastUpdate);
 }
 
-// Парсинг symbol: BTC-260207-98000-C
 function parseSymbol(symbol) {
   const parts = symbol.split('-');
   if (parts.length !== 4) return null;
@@ -49,29 +72,24 @@ function parseSymbol(symbol) {
   };
 }
 
-// Применение фильтров
 function applyFilters(options, query) {
   let result = options;
   
-  // Фильтр по underlying
   if (query.underlying) {
     const u = query.underlying.toUpperCase();
     result = result.filter(o => o.symbol.startsWith(u + '-'));
   }
   
-  // Фильтр по expiry (формат: 260207)
   if (query.expiry) {
     result = result.filter(o => o.symbol.includes('-' + query.expiry + '-'));
   }
   
-  // Фильтр по типу (CALL или PUT)
   if (query.type) {
     const t = query.type.toUpperCase();
     const suffix = t === 'CALL' ? '-C' : '-P';
     result = result.filter(o => o.symbol.endsWith(suffix));
   }
   
-  // Фильтр по минимальному strike
   if (query.minStrike) {
     const min = parseFloat(query.minStrike);
     result = result.filter(o => {
@@ -80,7 +98,6 @@ function applyFilters(options, query) {
     });
   }
   
-  // Фильтр по максимальному strike
   if (query.maxStrike) {
     const max = parseFloat(query.maxStrike);
     result = result.filter(o => {
@@ -89,39 +106,103 @@ function applyFilters(options, query) {
     });
   }
   
-  // Фильтр по минимальному volume
   if (query.minVolume) {
     const min = parseFloat(query.minVolume);
     result = result.filter(o => parseFloat(o.volume || 0) >= min);
   }
   
+  // Фильтры по грекам
+  if (query.minDelta) {
+    const min = parseFloat(query.minDelta);
+    result = result.filter(o => {
+      const g = cache.greeks[o.symbol];
+      return g && parseFloat(g.delta) >= min;
+    });
+  }
+  
+  if (query.maxDelta) {
+    const max = parseFloat(query.maxDelta);
+    result = result.filter(o => {
+      const g = cache.greeks[o.symbol];
+      return g && parseFloat(g.delta) <= max;
+    });
+  }
+  
+  if (query.minGamma) {
+    const min = parseFloat(query.minGamma);
+    result = result.filter(o => {
+      const g = cache.greeks[o.symbol];
+      return g && parseFloat(g.gamma) >= min;
+    });
+  }
+  
+  if (query.minVega) {
+    const min = parseFloat(query.minVega);
+    result = result.filter(o => {
+      const g = cache.greeks[o.symbol];
+      return g && parseFloat(g.vega) >= min;
+    });
+  }
+  
+  if (query.minIV) {
+    const min = parseFloat(query.minIV);
+    result = result.filter(o => {
+      const g = cache.greeks[o.symbol];
+      return g && parseFloat(g.markIV) >= min;
+    });
+  }
+  
+  if (query.maxIV) {
+    const max = parseFloat(query.maxIV);
+    result = result.filter(o => {
+      const g = cache.greeks[o.symbol];
+      return g && parseFloat(g.markIV) <= max;
+    });
+  }
+  
   return result;
 }
 
-// Health check
+// Добавляем греки к опционам
+function enrichWithGreeks(options) {
+  return options.map(o => {
+    const g = cache.greeks ? cache.greeks[o.symbol] : null;
+    return {
+      ...o,
+      greeks: g ? {
+        delta: g.delta,
+        gamma: g.gamma,
+        theta: g.theta,
+        vega: g.vega,
+        markIV: g.markIV
+      } : null
+    };
+  });
+}
+
 app.get('/health', (req, res) => {
   res.json({ 
     status: 'ok', 
     lastUpdate: cache.lastUpdate,
-    optionsCount: cache.options ? cache.options.length : 0
+    optionsCount: cache.options ? cache.options.length : 0,
+    greeksLoaded: !!cache.greeks
   });
 });
 
-// Все опционы с фильтрами
 app.get('/api/options', checkApiKey, (req, res) => {
   if (!cache.options) {
     return res.status(503).json({ error: 'Data not ready' });
   }
   const filtered = applyFilters(cache.options, req.query);
+  const enriched = enrichWithGreeks(filtered);
   res.json({
     lastUpdate: cache.lastUpdate,
-    count: filtered.length,
+    count: enriched.length,
     filters: req.query,
-    data: filtered
+    data: enriched
   });
 });
 
-// Summary статистика
 app.get('/api/summary', checkApiKey, (req, res) => {
   if (!cache.options) {
     return res.status(503).json({ error: 'Data not ready' });
@@ -133,8 +214,7 @@ app.get('/api/summary', checkApiKey, (req, res) => {
   const calcStats = (arr) => {
     const calls = arr.filter(o => o.symbol.endsWith('-C'));
     const puts = arr.filter(o => o.symbol.endsWith('-P'));
-    const totalVol = arr.reduce((s, o) => 
-      s + parseFloat(o.volume || 0), 0);
+    const totalVol = arr.reduce((s, o) => s + parseFloat(o.volume || 0), 0);
     return {
       count: arr.length,
       calls: calls.length,
@@ -150,7 +230,6 @@ app.get('/api/summary', checkApiKey, (req, res) => {
   });
 });
 
-// Список доступных expiry дат
 app.get('/api/expiries', checkApiKey, (req, res) => {
   if (!cache.options) {
     return res.status(503).json({ error: 'Data not ready' });
@@ -162,11 +241,10 @@ app.get('/api/expiries', checkApiKey, (req, res) => {
     if (p) expiries.add(p.expiry);
   });
   
-  const sorted = Array.from(expiries).sort();
   res.json({
     lastUpdate: cache.lastUpdate,
-    count: sorted.length,
-    expiries: sorted
+    count: expiries.size,
+    expiries: Array.from(expiries).sort()
   });
 });
 
