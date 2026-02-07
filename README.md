@@ -2,10 +2,16 @@
 
 API для получения данных по криптовалютным опционам с Binance.
 
+## Доступ к API
+
+API доступен по адресу **http://76.13.138.220** через Nginx (проксирует на порт 8080).
+
+WebSocket: **ws://76.13.138.220**
+
 ## Сервер
 
 - **IP:** 76.13.138.220
-- **Порт:** 8080
+- **Порт:** 8080 (внутренний), 80 (Nginx)
 - **Пользователь:** app
 - **Путь:** /home/app/options-backend
 
@@ -158,7 +164,7 @@ Real-time обновления данных по опционам через Web
 ### Подключение
 
 ```
-ws://76.13.138.220:8080
+ws://76.13.138.220
 ```
 
 ### Каналы
@@ -202,7 +208,7 @@ ws://76.13.138.220:8080
 ### Пример подключения (JavaScript)
 
 ```javascript
-const ws = new WebSocket("ws://76.13.138.220:8080");
+const ws = new WebSocket("ws://76.13.138.220");
 
 ws.onopen = () => {
   ws.send(JSON.stringify({ subscribe: "BTC" }));
@@ -219,43 +225,43 @@ ws.onmessage = (event) => {
 
 ```bash
 # Health check
-curl http://localhost:8080/health
+curl http://76.13.138.220/health
 
 # Все опционы
 curl -H "x-api-key: my_secret_key_12345" \
-  "http://localhost:8080/api/options"
+  "http://76.13.138.220/api/options"
 
 # BTC CALL опционы
 curl -H "x-api-key: my_secret_key_12345" \
-  "http://localhost:8080/api/options?underlying=BTC&type=CALL"
+  "http://76.13.138.220/api/options?underlying=BTC&type=CALL"
 
 # Опционы на конкретную дату
 curl -H "x-api-key: my_secret_key_12345" \
-  "http://localhost:8080/api/options?underlying=BTC&expiry=260207"
+  "http://76.13.138.220/api/options?underlying=BTC&expiry=260207"
 
 # ATM опционы (delta 0.4-0.6)
 curl -H "x-api-key: my_secret_key_12345" \
-  "http://localhost:8080/api/options?underlying=BTC&minDelta=0.4&maxDelta=0.6"
+  "http://76.13.138.220/api/options?underlying=BTC&minDelta=0.4&maxDelta=0.6"
 
 # Опционы с высоким объёмом
 curl -H "x-api-key: my_secret_key_12345" \
-  "http://localhost:8080/api/options?minVolume=100"
+  "http://76.13.138.220/api/options?minVolume=100"
 
 # Top movers — BTC, топ 5
 curl -H "x-api-key: my_secret_key_12345" \
-  "http://localhost:8080/api/top-movers?underlying=BTC&limit=5"
+  "http://76.13.138.220/api/top-movers?underlying=BTC&limit=5"
 
 # Unusual volume
 curl -H "x-api-key: my_secret_key_12345" \
-  "http://localhost:8080/api/unusual-volume?underlying=ETH&limit=10"
+  "http://76.13.138.220/api/unusual-volume?underlying=ETH&limit=10"
 
 # Список экспираций
 curl -H "x-api-key: my_secret_key_12345" \
-  "http://localhost:8080/api/expiries"
+  "http://76.13.138.220/api/expiries"
 
 # Статистика
 curl -H "x-api-key: my_secret_key_12345" \
-  "http://localhost:8080/api/summary"
+  "http://76.13.138.220/api/summary"
 ```
 
 ## Структура ответа /api/options
@@ -316,5 +322,5 @@ git push
 - [x] ~~Добавить эндпоинт top gainers/losers~~
 - [x] ~~Добавить эндпоинт unusual volume~~
 - [x] ~~Добавить WebSocket для real-time данных~~
-- [ ] Настроить Nginx для внешнего доступа
+- [x] ~~Настроить Nginx для внешнего доступа~~
 - [ ] Разбить код на модули (routes, services)
