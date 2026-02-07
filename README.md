@@ -4,9 +4,9 @@ API для получения данных по криптовалютным о�
 
 ## Доступ к API
 
-API доступен по адресу **http://76.13.138.220** через Nginx (проксирует на порт 8080).
+API доступен по адресу **https://options.szhub.space** через Nginx (проксирует на порт 8080).
 
-WebSocket: **ws://76.13.138.220**
+WebSocket: **wss://options.szhub.space**
 
 ## Сервер
 
@@ -164,7 +164,7 @@ Real-time обновления данных по опционам через Web
 ### Подключение
 
 ```
-ws://76.13.138.220
+wss://options.szhub.space
 ```
 
 ### Каналы
@@ -208,7 +208,7 @@ ws://76.13.138.220
 ### Пример подключения (JavaScript)
 
 ```javascript
-const ws = new WebSocket("ws://76.13.138.220");
+const ws = new WebSocket("wss://options.szhub.space");
 
 ws.onopen = () => {
   ws.send(JSON.stringify({ subscribe: "BTC" }));
@@ -225,43 +225,43 @@ ws.onmessage = (event) => {
 
 ```bash
 # Health check
-curl http://76.13.138.220/health
+curl https://options.szhub.space/health
 
 # Все опционы
 curl -H "x-api-key: my_secret_key_12345" \
-  "http://76.13.138.220/api/options"
+  "https://options.szhub.space/api/options"
 
 # BTC CALL опционы
 curl -H "x-api-key: my_secret_key_12345" \
-  "http://76.13.138.220/api/options?underlying=BTC&type=CALL"
+  "https://options.szhub.space/api/options?underlying=BTC&type=CALL"
 
 # Опционы на конкретную дату
 curl -H "x-api-key: my_secret_key_12345" \
-  "http://76.13.138.220/api/options?underlying=BTC&expiry=260207"
+  "https://options.szhub.space/api/options?underlying=BTC&expiry=260207"
 
 # ATM опционы (delta 0.4-0.6)
 curl -H "x-api-key: my_secret_key_12345" \
-  "http://76.13.138.220/api/options?underlying=BTC&minDelta=0.4&maxDelta=0.6"
+  "https://options.szhub.space/api/options?underlying=BTC&minDelta=0.4&maxDelta=0.6"
 
 # Опционы с высоким объёмом
 curl -H "x-api-key: my_secret_key_12345" \
-  "http://76.13.138.220/api/options?minVolume=100"
+  "https://options.szhub.space/api/options?minVolume=100"
 
 # Top movers — BTC, топ 5
 curl -H "x-api-key: my_secret_key_12345" \
-  "http://76.13.138.220/api/top-movers?underlying=BTC&limit=5"
+  "https://options.szhub.space/api/top-movers?underlying=BTC&limit=5"
 
 # Unusual volume
 curl -H "x-api-key: my_secret_key_12345" \
-  "http://76.13.138.220/api/unusual-volume?underlying=ETH&limit=10"
+  "https://options.szhub.space/api/unusual-volume?underlying=ETH&limit=10"
 
 # Список экспираций
 curl -H "x-api-key: my_secret_key_12345" \
-  "http://76.13.138.220/api/expiries"
+  "https://options.szhub.space/api/expiries"
 
 # Статистика
 curl -H "x-api-key: my_secret_key_12345" \
-  "http://76.13.138.220/api/summary"
+  "https://options.szhub.space/api/summary"
 ```
 
 ## Структура ответа /api/options
