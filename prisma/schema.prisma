@@ -1,0 +1,61 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model IvSnapshot {
+  id          Int      @id @default(autoincrement())
+  underlying  String
+  expiry      String
+  strike      Float
+  optionType  String
+  iv          Float
+  volume      Float    @default(0)
+  oi          Float    @default(0)
+  spotPrice   Float
+  createdAt   DateTime @default(now())
+
+  @@index([underlying, createdAt])
+  @@index([underlying, expiry, strike, optionType])
+}
+
+model AtmIvHistory {
+  id          Int      @id @default(autoincrement())
+  underlying  String
+  atmIv       Float
+  spotPrice   Float
+  createdAt   DateTime @default(now())
+
+  @@index([underlying, createdAt])
+}
+
+model Signal {
+  id          Int      @id @default(autoincrement())
+  type        String
+  underlying  String
+  symbol      String
+  severity    String
+  data        Json
+  createdAt   DateTime @default(now())
+
+  @@index([type, createdAt])
+  @@index([underlying, createdAt])
+}
+
+model MarketSnapshot {
+  id              Int      @id @default(autoincrement())
+  underlying      String
+  totalOptions    Int
+  totalVolume     Float
+  totalOi         Float
+  putCallRatio    Float
+  avgIv           Float
+  spotPrice       Float
+  createdAt       DateTime @default(now())
+
+  @@index([underlying, createdAt])
+}
